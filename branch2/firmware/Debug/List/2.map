@@ -1,0 +1,40 @@
+RAM Allocation [bytes]
+Variable                                                                          Address   Size
+------------------------------------------------------------------------------------------------
+_seed                                                                             0x0201       4
+
+EEPROM Allocation [bytes]
+Variable                                                                          Address   Size
+------------------------------------------------------------------------------------------------
+I1                                                                                0x0000       4
+I2                                                                                0x0004       4
+
+Register Allocation
+Variable                                                                          Register  Size
+------------------------------------------------------------------------------------------------
+t                                                                                 R3,R4        2
+T1                                                                                R5,R6        2
+T2                                                                                R7,R8        2
+
+FLASH Allocation [words]
+Function                                                                          Address   Size
+------------------------------------------------------------------------------------------------
+LCDcom                                                                            0x0007E     19
+lcd_com                                                                           0x00091     12
+LCDinit                                                                           0x0009D     32
+char_out                                                                          0x000BD     42
+str_out                                                                           0x000E7     14
+strf_out                                                                          0x000F5     18
+lcd_printf                                                                        0x00107     22
+check                                                                             0x0011D     50
+testC2                                                                            0x0014F     26
+testR                                                                             0x0019F     61
+ext_int0_isr                                                                      0x001DC     38
+timer0_ovf_isr                                                                    0x00202     13
+ana_comp_isr                                                                      0x0020F     48
+main                                                                              0x0023F    114
+ftoa                                                                              0x002B1    206
+spi                                                                               0x0037F      9
+ftrunc                                                                            0x00388     49
+floor                                                                             0x003B9     23
+strcpyf                                                                           0x003D0     13

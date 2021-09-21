@@ -1,0 +1,63 @@
+RAM Allocation [bytes]
+Variable                                                                          Address   Size
+------------------------------------------------------------------------------------------------
+twi_tx_index                                                                      0x0187       1
+twi_rx_index                                                                      0x0188       1
+twi_result                                                                        0x0189       1
+r                                                                                 0x018A       2
+RS                                                                                0x018C       2
+CP                                                                                0x018E       2
+LCD_buff                                                                          0x0190       2
+a                                                                                 0x0192       2
+b                                                                                 0x0194       2
+_seed                                                                             0x0196       4
+slave_address                                                                     0x019A       1
+twi_tx_buffer                                                                     0x019B       2
+bytes_to_tx                                                                       0x019D       1
+twi_rx_buffer                                                                     0x019E       2
+bytes_to_rx                                                                       0x01A0       1
+twi_rx_buffer_size                                                                0x01A1       1
+twi_slave_rx_handler                                                              0x01A2       2
+twi_slave_tx_handler                                                              0x01A4       2
+
+EEPROM Allocation [bytes]
+Variable                                                                          Address   Size
+------------------------------------------------------------------------------------------------
+
+Register Allocation
+Variable                                                                          Register  Size
+------------------------------------------------------------------------------------------------
+T1                                                                                R4,R5        2
+T2                                                                                R6,R7        2
+t1                                                                                R8,R9        2
+t2                                                                                R10,R11      2
+f                                                                                 R2.0      1bit
+c                                                                                 R12,R13      2
+twi_flag                                                                          R2.1      1bit
+twi_ready                                                                         R2.2      1bit
+
+FLASH Allocation [words]
+Function                                                                          Address   Size
+------------------------------------------------------------------------------------------------
+LCDcom                                                                            0x000AA     54
+LCDinit                                                                           0x000E0     73
+char_out                                                                          0x00129    113
+str_out                                                                           0x0019A     42
+ext_int0_isr                                                                      0x001C4     14
+ext_int1_isr                                                                      0x001D2    229
+ana_comp_isr                                                                      0x002B7     40
+timer1_ovf_isr                                                                    0x002DF     18
+main                                                                              0x002F1     87
+putchar                                                                           0x00348      7
+put_usart_G100                                                                    0x0034F     12
+_print_G100                                                                       0x0035B    361
+printf                                                                            0x004C4     32
+itoa                                                                              0x004E4     46
+strcat                                                                            0x00512     17
+strcpy                                                                            0x00523     13
+strcpyf                                                                           0x00530     13
+strlen                                                                            0x0053D     12
+strlenf                                                                           0x00549     13
+twi_master_init                                                                   0x00556     40
+twi_master_trans                                                                  0x0057E    103
+twi_int_handler                                                                   0x005E5    355

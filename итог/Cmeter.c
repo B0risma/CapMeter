@@ -1,0 +1,506 @@
+/*******************************************************
+This program was created by the
+CodeWizardAVR V3.12 Advanced
+Automatic Program Generator
+© Copyright 1998-2014 Pavel Haiduc, HP InfoTech s.r.l.
+http://www.hpinfotech.com
+
+Project : 
+Version : 
+Date    : 15.05.2021
+Author  : 
+Company : 
+Comments: 
+
+
+Chip type               : ATmega8A
+Program type            : Application
+AVR Core Clock frequency: 8,000000 MHz
+Memory model            : Small
+External RAM size       : 0
+Data Stack size         : 256
+*******************************************************/
+#define CUR2 PORTD.7
+#define CUR1 PORTB.0
+#define DISCH PORTB.1
+#define LCD_LINE1 lcd_com(0x80)
+#define LCD_LINE2 lcd_com(0xC0)
+#define LCD_CLR lcd_com(0x01)
+#define CLK 16  //MHz
+#define CLK_PSL 8
+#define REF 1.25
+
+
+#include <mega8.h>
+
+// Standard Input/Output functions
+//#include <stdio.h>
+#include <stdlib.h>
+//#include <string.h>
+#include <iobits.h>
+#include <delay.h>
+#include <spi.h>
+
+// Declare your global variables here
+unsigned long t=0, T1=0, T2=0;
+eeprom float I1=10.5, I2= 113.3;
+bit mode = 0;
+
+void LCDcom(unsigned char com) //выполняет пол команды отправляет старший полубайт
+{
+    com |= 0x08;                // Р3 в единицу, дабы горела подсветка
+    spi(com);    // Вывод данных
+    SETBIT(PORTB,2);
+    //delay_us(1);
+    CLRBIT(PORTB,2);
+    //delay_us(200);
+    com |= 0x04;                // Е в единицу
+    spi(com);    // Вывод данных
+    SETBIT(PORTB,2);
+    //delay_us(1);
+    CLRBIT(PORTB,2);
+    //delay_us(200);
+    com &= 0xFB;                // Е в ноль
+    spi(com);    // Вывод данных
+    SETBIT(PORTB,2);
+    //delay_us(1);
+    CLRBIT(PORTB,2);
+    delay_ms(2);
+}
+
+void lcd_com(unsigned char com)
+    {
+      LCDcom(com & 0xF0);
+      LCDcom((com <<4)&0xF0);  
+    }
+
+void LCDinit()
+{    
+    delay_ms(40);        // Пауза после подачи питания
+    LCDcom(0x30);        // Переход в 4-х битный режим
+    delay_us(40);        // Задержка для выполнения команды
+    LCDcom(0x30);        // Переход в 4-х битный режим
+    delay_us(40);        // Задержка для выполнения команды
+    LCDcom(0x30);        // Переход в 4-х битный режим
+    delay_us(40);        // Задержка для выполнения команды
+    LCDcom(0x20);        // Переход в 4-х битный режим
+    delay_us(40);        // Задержка для выполнения команды
+    LCDcom(0x20);        // Установка параметров
+    LCDcom(0x80);        // Установка параметров
+    LCDcom(0x00);        // Выключаем дисплей
+    LCDcom(0x80);        // Выключаем дисплей
+    LCDcom(0x00);        // Очищаем дисплей
+    LCDcom(0x10);        // Очищаем дисплей
+    LCDcom(0x00);        // Устанавливаем режим ввода данных
+    LCDcom(0x60);        // Устанавливаем режим ввода данных
+    LCDcom(0x00);        // Включаем дисплей с выбранным курсором
+    LCDcom(0xC0);        // Включаем дисплей с выбранным курсором
+}
+
+void char_out(unsigned char data)
+{      
+    unsigned char data_h = ((data & 0xF0) + 0x09);
+    unsigned char data_l = ((data << 4) + 0x09);
+	       					
+	spi(data_h); // Передача старших 4 бит
+    SETBIT(PORTB,2);
+    //delay_us(1);
+    CLRBIT(PORTB,2);
+    //delay_us(200);
+	data_h |= 0x04;
+    spi(data_h); // Передача старших 4 бит
+    SETBIT(PORTB,2);
+    //delay_us(1);
+    CLRBIT(PORTB,2);
+    delay_us(200);
+	data_h &= 0xF9;
+	spi(data_h); // Передача старших 4 бит
+    SETBIT(PORTB,2);
+    //delay_us(1);
+    CLRBIT(PORTB,2);
+	delay_us(500);
+	spi(data_l); // Передача младших 4 бит
+    SETBIT(PORTB,2);
+    //delay_us(1);
+    CLRBIT(PORTB,2);
+    //delay_us(200);
+	data_l |= 0x04;
+	spi(data_l); // Передача младших 4 бит
+    SETBIT(PORTB,2);
+    //delay_us(1);
+    CLRBIT(PORTB,2);
+    //delay_us(200);
+	data_l &= 0xF9;
+	spi(data_l); // Передача младших 4 бит
+    SETBIT(PORTB,2);
+    //delay_us(1);
+    CLRBIT(PORTB,2);
+    delay_ms(2);
+}
+
+void str_out(char *str)
+    {
+        while (*str!='\0')
+            {
+              char_out(*str++);  
+            }
+    }
+      
+void strf_out(flash char *str)
+    {
+        while (*str!='\0')
+            {
+              char_out(*str++);  
+            }
+    }    
+
+void lcd_printf(float f, unsigned char n){
+    char *str = "";
+    ftoa(f, n, str);
+    str_out(str);
+}
+
+void check( float C){
+ CUR1 = 0;
+ CUR2 = 0;
+ mode = 1;  
+ LCD_CLR;
+ LCD_LINE1; 
+ strf_out("CHECK");      
+ SETBIT(SFIOR, ACME);
+ SETBIT(TCCR1B,CS11);
+ #asm("sei")
+ SETBIT(PORTD, PORTD0);
+ DISCH=1;
+ delay_ms(1000);  
+ CUR2=1;
+ DISCH=0;
+ TCNT1=0;
+ CLRBIT(TIMSK, TICIE1);
+ ADMUX &= ~((1 << MUX3) | (1 << MUX2) | (1 << MUX1) | (1 << MUX0));
+ SETBIT(TIFR,ICF1);
+ SETBIT(TIMSK, TICIE1);        
+ T1=0;
+ T2=0;
+ t=0;
+ while(!T2);
+ CUR2=0;
+ I2 = (1265)/((float)T2/(CLK/CLK_PSL))*C;
+ 
+
+ 
+ 
+ DISCH=1;
+ delay_ms(1000);
+ CUR1=1;
+ DISCH=0;
+ TCNT1=0;
+ CLRBIT(TIMSK, TICIE1);
+ ADMUX &= ~((1 << MUX3) | (1 << MUX2) | (1 << MUX1) | (1 << MUX0));
+ SETBIT(TIFR,ICF1);
+ SETBIT(TIMSK, TICIE1);    
+ T1=0;
+ T2=0; 
+ t=0;
+ while(!T2);
+ CUR1=0;
+ I1 = (1265)/((float)T2/(CLK/CLK_PSL))*C;
+ 
+ 
+ DISCH=1;
+ LCD_CLR;
+ LCD_LINE1; 
+ lcd_printf(I1,1 );
+ strf_out("mA");
+ LCD_LINE2;
+ lcd_printf(I2,1); 
+ strf_out("mA");
+ CLRBIT(PORTD, PORTD0);
+                
+ mode = 0;
+ CLRBIT(TCCR1B,CS11); 
+        
+
+}
+
+float testC(){
+float C = 0;
+#asm("cli")
+CUR1 = 0;
+CUR2 = 0;
+DISCH=1;
+delay_ms(1000);
+SETBIT(TCCR1B,CS11);
+CLRBIT(ADMUX,MUX0);
+SETBIT(TIFR,ICF1);
+#asm("sei")
+CUR1=1;
+t = 0;
+TCNT1 = 0;
+T1 = 0;
+T2 = 0;
+DISCH = 0;
+while (!T1);
+if (t > 4) {  //~>1000uF
+    #asm("cli")
+    CUR1 = 0;
+    DISCH = 1;
+    delay_ms(500);
+    CLRBIT(ADMUX,MUX0);
+    SETBIT(TIFR,ICF1);
+    #asm("sei")
+    CUR2 = 1;
+    t = 0;
+    TCNT1 = 0;
+    T1 = 0;
+    T2 = 0;
+    DISCH = 0;
+    while (!T1);
+    while ((T2<T1/2) | (!T2)); 
+    CUR2 = 0;
+    C =  (I2*((float)T2/(CLK/CLK_PSL)))/(1265);
+}
+else {
+    while ((T2<T1/2) | (!T2));
+    CUR1 = 0;
+    C =  (I1*((float)T2/(CLK/CLK_PSL)))/(1265);
+}
+return C;
+}
+
+
+float esr(float C){
+    float R = 0;
+    #asm("cli")
+    CUR1 = 0;
+    CUR2 = 0;
+    DISCH = 1;
+    delay_ms(2000);
+    SETBIT(TCCR1B,CS11); 
+    //CLRBIT(ADMUX,MUX0);
+    ADMUX |= (0 << MUX3) | (0 << MUX2) | (1 << MUX1) | (0 << MUX0);
+    SETBIT(TIFR,ICF1);
+    #asm("sei")
+    DISCH = 0;
+    CUR2 = 1;
+    TCNT1 = 0;
+                //пока оставить такой порядок, наиболее точно и быстро
+    t = 0;
+    T1 = 0;
+    while(!T1);
+    R = (1235)/I2 - ((float)T1/(CLK/CLK_PSL))/C;          
+    CUR1 = 0;
+    CUR2 = 0;
+    DISCH = 1;
+    return R;
+}
+
+
+// External Interrupt 0 service routine
+interrupt [EXT_INT0] void ext_int0_isr(void)
+{
+    delay_ms(100);
+    SETBIT(TIFR,ICF1);
+    #asm("sei")
+    check(6.89); 
+}
+
+
+
+// Timer 0 overflow interrupt service routine
+interrupt [TIM1_OVF] void timer1_ovf_isr(void)
+{
+        t++;
+        if((t > (CLK/CLK_PSL)*30) & (!mode)){
+            LCD_CLR;
+            strf_out("ERROR");  
+        }
+
+}
+
+
+interrupt [TIM1_CAPT] void timer1_capt_isr(void)
+{
+        if (TSTBIT(ADMUX, MUX1)) {
+            TCNT1 = 0;                                //мултиплексор на 0
+            //PORTD.0 = 1;
+            ADMUX &= ~((1 << MUX3) | (1 << MUX2) | (1 << MUX1) | (1 << MUX0));
+            }
+        else if (TSTBIT(ADMUX, MUX0)==0){
+            TCNT1=0;
+            //PORTD.1 = 1;
+            SETBIT(ADMUX, MUX0);
+            T1 = t*0xFFFF + ICR1;  
+            T2=0;
+            t=0;
+            
+            
+        } 
+        else{
+            //PORTD.3 = 1;
+            T2 = t*0xFFFF + ICR1;
+        }       
+         SETBIT(TIFR,ICF1);
+}
+
+
+
+void main(void)
+{
+// Declare your local variables here
+float C = 0, R=0;
+
+
+// Input/Output Ports initialization
+// Port B initialization
+// Function: Bit7=In Bit6=In Bit5=In Bit4=In Bit3=In Bit2=In Bit1=In Bit0=In 
+DDRB=(0<<DDB7) | (0<<DDB6) | (1<<DDB5) | (0<<DDB4) | (1<<DDB3) | (1<<DDB2) | (1<<DDB1) | (1<<DDB0);
+// State: Bit7=T Bit6=T Bit5=T Bit4=T Bit3=T Bit2=T Bit1=T Bit0=T 
+PORTB=(0<<PORTB7) | (0<<PORTB6) | (0<<PORTB5) | (0<<PORTB4) | (0<<PORTB3) | (0<<PORTB2) | (0<<PORTB1) | (0<<PORTB0);
+
+// Port C initialization
+// Function: Bit6=In Bit5=In Bit4=In Bit3=In Bit2=In Bit1=In Bit0=In 
+DDRC=(0<<DDC6) | (0<<DDC5) | (0<<DDC4) | (0<<DDC3) | (0<<DDC2) | (0<<DDC1) | (0<<DDC0);
+// State: Bit6=T Bit5=T Bit4=T Bit3=T Bit2=T Bit1=T Bit0=T 
+PORTC=(0<<PORTC6) | (0<<PORTC5) | (0<<PORTC4) | (0<<PORTC3) | (0<<PORTC2) | (0<<PORTC1) | (0<<PORTC0);
+
+// Port D initialization
+// Function: Bit7=In Bit6=In Bit5=In Bit4=In Bit3=In Bit2=In Bit1=In Bit0=In 
+DDRD=(1<<DDD7) | (0<<DDD6) | (0<<DDD5) | (0<<DDD4) | (0<<DDD3) | (0<<DDD2) | (0<<DDD1) | (1<<DDD0);
+// State: Bit7=T Bit6=T Bit5=T Bit4=T Bit3=T Bit2=T Bit1=T Bit0=T 
+PORTD=(0<<PORTD7) | (0<<PORTD6) | (0<<PORTD5) | (0<<PORTD4) | (0<<PORTD3) | (1<<PORTD2) | (0<<PORTD1) | (0<<PORTD0);
+
+// Timer/Counter 0 initialization
+// Clock source: System Clock
+// Clock value: 1000,000 kHz
+TCCR0=(0<<CS02) | (0<<CS01) | (0<<CS00);
+TCNT0=0x00;
+
+// Timer/Counter 1 initialization
+// Clock source: System Clock
+// Clock value: 1000,000 kHz
+// Mode: Normal top=0xFFFF
+// OC1A output: Disconnected
+// OC1B output: Disconnected
+// Noise Canceler: Off
+// Input Capture on Rising Edge
+// Timer Period: 65,536 ms
+// Timer1 Overflow Interrupt: On
+// Input Capture Interrupt: On
+// Compare A Match Interrupt: Off
+// Compare B Match Interrupt: Off
+TCCR1A=(0<<COM1A1) | (0<<COM1A0) | (0<<COM1B1) | (0<<COM1B0) | (0<<WGM11) | (0<<WGM10);
+TCCR1B=(0<<ICNC1) | (1<<ICES1) | (0<<WGM13) | (0<<WGM12) | (0<<CS12) | (1<<CS11) | (0<<CS10);
+TCNT1H=0x00;
+TCNT1L=0x00;
+ICR1H=0x00;
+ICR1L=0x00;
+OCR1AH=0x00;
+OCR1AL=0x00;
+OCR1BH=0x00;
+OCR1BL=0x00;
+
+// Timer/Counter 2 initialization
+// Clock source: System Clock
+// Clock value: Timer2 Stopped
+// Mode: Normal top=0xFF
+// OC2 output: Disconnected
+ASSR=0<<AS2;
+TCCR2=(0<<PWM2) | (0<<COM21) | (0<<COM20) | (0<<CTC2) | (0<<CS22) | (0<<CS21) | (0<<CS20);
+TCNT2=0x00;
+OCR2=0x00;
+
+// Timer(s)/Counter(s) Interrupt(s) initialization
+TIMSK=(0<<OCIE2) | (0<<TOIE2) | (1<<TICIE1) | (0<<OCIE1A) | (0<<OCIE1B) | (1<<TOIE1) | (0<<TOIE0);
+
+// External Interrupt(s) initialization
+// INT0: On
+// INT0 Mode: Any change
+// INT1: Off
+GICR|=(0<<INT1) | (1<<INT0);
+MCUCR=(0<<ISC11) | (0<<ISC10) | (0<<ISC01) | (1<<ISC00);
+GIFR=(0<<INTF1) | (1<<INTF0);
+
+// USART initialization
+// Communication Parameters: 8 Data, 1 Stop, No Parity
+// USART Receiver: Off
+// USART Transmitter: On
+// USART Mode: Asynchronous
+// USART Baud Rate: 9600
+UCSRA=(0<<RXC) | (0<<TXC) | (0<<UDRE) | (0<<FE) | (0<<DOR) | (0<<UPE) | (0<<U2X) | (0<<MPCM);
+UCSRB=(0<<RXCIE) | (0<<TXCIE) | (0<<UDRIE) | (0<<RXEN) | (0<<TXEN) | (0<<UCSZ2) | (0<<RXB8) | (0<<TXB8);
+UCSRC=(1<<URSEL) | (0<<UMSEL) | (0<<UPM1) | (0<<UPM0) | (0<<USBS) | (1<<UCSZ1) | (1<<UCSZ0) | (0<<UCPOL);
+UBRRH=0x00;
+UBRRL=0x33;
+
+// Analog Comparator initialization
+// Analog Comparator: On
+// The Analog Comparator's positive input is
+// connected to the AIN0 pin
+// The Analog Comparator's negative input is
+// connected to the ADC multiplexer
+// Interrupt on Rising Output Edge
+// Analog Comparator Input Capture by Timer/Counter 1: Off
+ACSR=(0<<ACD) | (0<<ACBG) | (0<<ACO) | (1<<ACI) | (0<<ACIE) | (1<<ACIC) | (1<<ACIS1) | (1<<ACIS0);
+SFIOR=(1<<ACME);
+
+// ADC initialization
+// ADC disabled
+ADCSRA=(0<<ADEN) | (0<<ADSC) | (0<<ADFR) | (0<<ADIF) | (0<<ADIE) | (1<<ADPS2) | (1<<ADPS1) | (1<<ADPS0);
+ADMUX = 0;
+
+// SPI initialization
+// SPI Type: Master
+// SPI Clock Rate: 500,000 kHz
+// SPI Clock Phase: Cycle Start
+// SPI Clock Polarity: Low
+// SPI Data Order: MSB First
+if (CLK <= 16) SPCR=(0<<SPIE) | (1<<SPE) | (0<<DORD) | (1<<MSTR) | (0<<CPOL) | (0<<CPHA) | (0<<SPR1) | (1<<SPR0);
+else   SPCR=(0<<SPIE) | (1<<SPE) | (0<<DORD) | (1<<MSTR) | (0<<CPOL) | (0<<CPHA) | (1<<SPR1) | (1<<SPR0);
+SPSR=(0<<SPI2X);
+
+// TWI initialization
+// TWI disabled
+TWCR=(0<<TWEA) | (0<<TWSTA) | (0<<TWSTO) | (0<<TWEN) | (0<<TWIE);
+
+// Global enable interrupts
+DISCH=1;
+SETBIT(TIFR,ICF1);
+#asm("cli")
+LCDinit();
+delay_ms(100);
+lcd_printf(I1, 1);
+strf_out("mA");
+LCD_LINE2;
+lcd_printf(I2,1);
+strf_out("mA");
+delay_ms(500);
+
+LCD_CLR;
+strf_out("TESTING");
+
+C = testC();
+R = esr(C);
+CLRBIT(TCCR1B,CS11);
+
+      
+
+while (1)
+      { 
+        LCD_CLR;
+        if ( C > 1000){
+            lcd_printf( C, 0);
+        }
+        else{
+            lcd_printf(C, 2);
+        }
+        LCD_LINE2;
+        strf_out("    uf");
+        delay_ms(1000);
+        LCD_CLR;
+        lcd_printf(R, 3); //!!!!!!!!!!!!!
+        LCD_LINE2;
+        strf_out("    ohm");
+        delay_ms(1000);
+      }
+}

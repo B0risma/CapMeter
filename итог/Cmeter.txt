@@ -1,0 +1,34 @@
+в конце разрядить кондер
+
+
+
+#asm("cli")
+CUR1 = 0;
+CUR2 = 0;
+DISCH = 1;
+delay_ms(1000);
+CLRBIT(ADMUX,MUX0);
+SETBIT(TIFR,ICF1);
+#asm("sei")
+CUR2 = 1;
+t = 0;
+T1 = 0;
+TCNT1 = 0;
+DISCH = 0;
+while(!T1);
+if(t > 30){
+    LCD_CLR;
+    strf_out("ERROR");  
+}
+else {
+R = (float)U1/I2 - (float)T1/C;
+LCD_LINE2;
+lcd_printf(T1, 0);
+strf_out("ohm");
+}          //end
+CUR1 = 0;
+CUR2 = 0;
+DISCH = 1;
+
+
+

@@ -1,0 +1,41 @@
+RAM Allocation [bytes]
+Variable                                                                          Address   Size
+------------------------------------------------------------------------------------------------
+t                                                                                 0x0161       4
+T1                                                                                0x0165       4
+T2                                                                                0x0169       4
+_seed                                                                             0x016D       4
+
+EEPROM Allocation [bytes]
+Variable                                                                          Address   Size
+------------------------------------------------------------------------------------------------
+I1                                                                                0x0000       4
+I2                                                                                0x0004       4
+
+Register Allocation
+Variable                                                                          Register  Size
+------------------------------------------------------------------------------------------------
+mode                                                                              R2.0      1bit
+
+FLASH Allocation [words]
+Function                                                                          Address   Size
+------------------------------------------------------------------------------------------------
+LCDcom                                                                            0x00064     13
+lcd_com                                                                           0x00071     11
+LCDinit                                                                           0x0007C     25
+char_out                                                                          0x00095     40
+str_out                                                                           0x000BD     13
+strf_out                                                                          0x000CA     17
+lcd_printf                                                                        0x000DB     18
+check                                                                             0x000ED     46
+testC                                                                             0x0011B     72
+esr                                                                               0x00163     70
+ext_int0_isr                                                                      0x001A9     11
+timer1_ovf_isr                                                                    0x001B4     39
+timer1_capt_isr                                                                   0x001DB     66
+main                                                                              0x0021D    130
+ftoa                                                                              0x0029F    142
+spi                                                                               0x0032D      8
+ftrunc                                                                            0x00335     48
+floor                                                                             0x00365     16
+strcpyf                                                                           0x00375     12

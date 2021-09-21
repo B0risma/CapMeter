@@ -1,0 +1,288 @@
+/*******************************************************
+This program was created by the
+CodeWizardAVR V3.12 Advanced
+Automatic Program Generator
+© Copyright 1998-2014 Pavel Haiduc, HP InfoTech s.r.l.
+http://www.hpinfotech.com
+
+Project : 
+Version : 
+Date    : 22.07.2020
+Author  : 
+Company : 
+Comments: 
+
+
+Chip type               : ATmega8
+Program type            : Application
+AVR Core Clock frequency: 16,000000 MHz
+Memory model            : Small
+External RAM size       : 0
+Data Stack size         : 256
+*******************************************************/
+
+#include <mega8.h>
+// Standard Input/Output functions
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <delay.h>
+#include <twi.h>
+
+// Declare your global variables here
+unsigned int T1 = 0, T2 =0, t1=0, t2=0;
+bit f=0;
+char *c= "C=";
+char *r= "ESR=";
+unsigned int RS = 0;
+ unsigned int CP = 0;
+char *LCD_buff= "0000000000000000";
+char *a= "0000";
+const char *b="<TESTING>";
+
+void LCDcom(unsigned char addr, unsigned char com) //выполняет пол команды отправляет старший полубайт
+{
+    com |= 0x08;                // Р3 в единицу, дабы горела подсветка
+    twi_master_trans(addr,&com,1,0,0);    // Вывод данных
+    com |= 0x04;                // Е в единицу
+    twi_master_trans(addr,&com,1,0,0);    // Вывод данных
+    com &= 0xFB;                // Е в ноль
+    twi_master_trans(addr,&com,1,0,0);    // Вывод данных
+}
+void LCDinit(unsigned char addr)
+{    
+    delay_ms(30);        // Пауза после подачи питания
+    LCDcom(addr,0x30);        // Переход в 4-х битный режим
+    delay_us(40);        // Задержка для выполнения команды
+    LCDcom(addr,0x30);        // Переход в 4-х битный режим
+    delay_us(40);        // Задержка для выполнения команды
+    LCDcom(addr,0x30);        // Переход в 4-х битный режим
+    delay_us(40);        // Задержка для выполнения команды
+    LCDcom(addr,0x20);        // Переход в 4-х битный режим
+    delay_us(40);        // Задержка для выполнения команды
+    LCDcom(addr,0x20);        // Установка параметров
+    LCDcom(addr,0x80);        // Установка параметров
+    LCDcom(addr,0x00);        // Выключаем дисплей
+    LCDcom(addr,0x80);        // Выключаем дисплей
+    LCDcom(addr,0x00);        // Очищаем дисплей
+    LCDcom(addr,0x10);        // Очищаем дисплей
+    LCDcom(addr,0x00);        // Устанавливаем режим ввода данных
+    LCDcom(addr,0x60);        // Устанавливаем режим ввода данных
+    LCDcom(addr,0x00);        // Включаем дисплей с выбранным курсором
+    LCDcom(addr,0xC0);        // Включаем дисплей с выбранным курсором
+}
+
+void char_out(unsigned char addr, unsigned char data)
+{      
+    unsigned char data_h = ((data & 0xF0) + 0x09);
+    unsigned char data_l = ((data << 4) + 0x09);
+                               
+    twi_master_trans(addr, &data_h,1,0,0); // Передача старших 4 бит
+    data_h |= 0x04;
+    twi_master_trans(addr, &data_h,1,0,0); // Передача старших 4 бит
+	data_h &= 0xF9;
+	twi_master_trans(addr, &data_h,1,0,0); // Передача старших 4 бит
+	
+	twi_master_trans(addr, &data_l,1,0,0); // Передача младших 4 бит
+	data_l |= 0x04;
+	twi_master_trans(addr, &data_l,1,0,0); // Передача младших 4 бит
+	data_l &= 0xF9;
+	twi_master_trans(addr, &data_l,1,0,0); // Передача младших 4 бит
+}
+
+void str_out(unsigned char addr, char *str, char a)
+{    
+//  LCDcom(addr,0x00);		// Очищаем дисплей
+//	LCDcom(addr,0x10);
+    delay_ms(10);
+    if (a==1)   
+    {
+      LCDcom(0x27,0xC0);
+      LCDcom(0x27,0x00);
+    }
+    else
+    {
+        LCDcom(0x27,0x00);
+        LCDcom(0x27,0x02);
+    }
+    
+	while((*str) != '\0')
+	{
+		char_out(addr,*str);
+		str++;
+	}
+}
+
+// External Interrupt 0 service routine
+interrupt [EXT_INT0] void ext_int0_isr(void)
+{
+ t1=TCNT1;
+ TCNT1H=0;
+ TCNT1L=0;
+ f=1;
+ 
+
+}
+
+// External Interrupt 1 service routine
+interrupt [EXT_INT1] void ext_int1_isr(void)
+{
+t2=TCNT1;
+ printf("time1 %u ,%u  \n", T1,t1);
+
+printf("time2 %u ,%u  \n", T2,t2);
+
+        CP=(T2*65536+t2)*0.005;
+      itoa(CP, a);  
+      strcpy(LCD_buff, c);
+      strcat(LCD_buff, a);
+      strcat(LCD_buff, " uF");
+      LCDcom(0x27,0x00);		// Очищаем дисплей
+      LCDcom(0x27,0x10);       
+      str_out(0x27, LCD_buff,0);
+      RS=1.5/0.005 - (T1*65536+t1)/CP; 
+      itoa(RS, a); 
+      strcpy(LCD_buff, r);
+      strcat(LCD_buff, a);
+      strcat(LCD_buff, " Ohm");
+      delay_ms(1000); 
+      str_out(0x27, LCD_buff,1);
+}
+
+
+
+// Analog Comparator interrupt service routine
+interrupt [ANA_COMP] void ana_comp_isr(void)
+{
+TCNT1H=0;
+TCNT1L=0;
+ T1 = 0;
+  T2 =0;
+   t1=0;
+   t2=0;
+ 
+
+putchar('3');
+}
+
+interrupt [TIM1_OVF] void timer1_ovf_isr(void)
+{
+  if (f==0)
+  { 
+  T1++;
+  }
+  else
+  {
+   T2++;
+  }
+
+}
+
+void main(void)
+{
+// Declare your local variables here
+// Input/Output Ports initialization
+// Port B initialization
+// Function: Bit7=In Bit6=In Bit5=In Bit4=In Bit3=In Bit2=In Bit1=In Bit0=In 
+DDRB=(0<<DDB7) | (0<<DDB6) | (0<<DDB5) | (0<<DDB4) | (0<<DDB3) | (0<<DDB2) | (0<<DDB1) | (0<<DDB0);
+// State: Bit7=T Bit6=T Bit5=T Bit4=T Bit3=T Bit2=T Bit1=T Bit0=T 
+PORTB=(0<<PORTB7) | (0<<PORTB6) | (0<<PORTB5) | (0<<PORTB4) | (0<<PORTB3) | (0<<PORTB2) | (0<<PORTB1) | (0<<PORTB0);
+
+// Port C initialization
+// Function: Bit6=In Bit5=In Bit4=In Bit3=In Bit2=In Bit1=In Bit0=In 
+DDRC=(0<<DDC6) | (0<<DDC5) | (0<<DDC4) | (0<<DDC3) | (0<<DDC2) | (0<<DDC1) | (1<<DDC0);
+// State: Bit6=T Bit5=T Bit4=T Bit3=T Bit2=T Bit1=T Bit0=T 
+PORTC=(0<<PORTC6) | (0<<PORTC5) | (0<<PORTC4) | (0<<PORTC3) | (0<<PORTC2) | (0<<PORTC1) | (1<<PORTC0);
+
+// Port D initialization
+// Function: Bit7=In Bit6=In Bit5=In Bit4=In Bit3=In Bit2=In Bit1=In Bit0=In 
+DDRD=(0<<DDD7) | (0<<DDD6) | (0<<DDD5) | (0<<DDD4) | (0<<DDD3) | (0<<DDD2) | (0<<DDD1) | (0<<DDD0);
+// State: Bit7=T Bit6=T Bit5=T Bit4=T Bit3=T Bit2=T Bit1=T Bit0=T 
+PORTD=(0<<PORTD7) | (0<<PORTD6) | (0<<PORTD5) | (0<<PORTD4) | (0<<PORTD3) | (0<<PORTD2) | (0<<PORTD1) | (0<<PORTD0);
+
+
+
+// Timer/Counter 1 initialization ОПИСАНИЕ НЕВЕРНОЕ!!!! НАСТРОЙКИ ИЗМЕНЕНЫ
+// Clock source: System Clock
+// Clock value: 2000,000 kHz
+// Mode: Normal top=0xFFFF
+// OC1A output: Disconnected
+// OC1B output: Disconnected
+// Noise Canceler: Off
+// Input Capture on Falling Edge
+// Timer Period: 32,768 ms
+// Timer1 Overflow Interrupt: Off
+// Input Capture Interrupt: Off
+// Compare A Match Interrupt: Off
+// Compare B Match Interrupt: Off
+TCCR1A=(0<<COM1A1) | (0<<COM1A0) | (0<<COM1B1) | (0<<COM1B0) | (0<<WGM11) | (0<<WGM10);
+TCCR1B=(0<<ICNC1) | (0<<ICES1) | (0<<WGM13) | (0<<WGM12) | (0<<CS12) | (1<<CS11) | (0<<CS10);
+TCNT1H=0x00;
+TCNT1L=0x32;
+ICR1H=0x00;
+ICR1L=0x00;
+OCR1AH=0x00;
+OCR1AL=0x00;
+OCR1BH=0x00;
+OCR1BL=0x00;
+
+
+// Timer(s)/Counter(s) Interrupt(s) initialization
+TIMSK=(0<<OCIE2) | (0<<TOIE2) | (0<<TICIE1) | (0<<OCIE1A) | (0<<OCIE1B) | (1<<TOIE1) | (0<<TOIE0);
+
+// External Interrupt(s) initialization
+// INT0: On
+// INT0 Mode: Rising Edge
+// INT1: On
+// INT1 Mode: Rising Edge
+GICR|=(1<<INT1) | (1<<INT0);
+MCUCR=(1<<ISC11) | (1<<ISC10) | (1<<ISC01) | (1<<ISC00);
+GIFR=(1<<INTF1) | (1<<INTF0);
+
+// USART initialization
+// Communication Parameters: 8 Data, 1 Stop, No Parity
+// USART Receiver: Off
+// USART Transmitter: On
+// USART Mode: Asynchronous
+// USART Baud Rate: 9600
+UCSRA=(0<<RXC) | (0<<TXC) | (0<<UDRE) | (0<<FE) | (0<<DOR) | (0<<UPE) | (0<<U2X) | (0<<MPCM);
+UCSRB=(0<<RXCIE) | (0<<TXCIE) | (0<<UDRIE) | (0<<RXEN) | (1<<TXEN) | (0<<UCSZ2) | (0<<RXB8) | (0<<TXB8);
+UCSRC=(1<<URSEL) | (0<<UMSEL) | (0<<UPM1) | (0<<UPM0) | (0<<USBS) | (1<<UCSZ1) | (1<<UCSZ0) | (0<<UCPOL);
+UBRRH=0x00;
+UBRRL=0x33;
+
+// Analog Comparator initialization
+// Analog Comparator: On
+// The Analog Comparator's positive input is
+// connected to the AIN0 pin
+// The Analog Comparator's negative input is
+// connected to the AIN1 pin
+// Interrupt on Rising Output Edge
+// Analog Comparator Input Capture by Timer/Counter 1: Off
+ACSR=(0<<ACD) | (0<<ACBG) | (0<<ACO) | (0<<ACI) | (1<<ACIE) | (0<<ACIC) | (1<<ACIS1) | (1<<ACIS0);
+SFIOR=(0<<ACME);
+
+// ADC initialization
+// ADC disabled
+ADCSRA=(0<<ADEN) | (0<<ADSC) | (0<<ADFR) | (0<<ADIF) | (0<<ADIE) | (0<<ADPS2) | (0<<ADPS1) | (0<<ADPS0);
+
+
+// TWI initialization
+twi_master_init(100);
+
+// Global enable interrupts
+
+ 
+        LCDinit(0x27);
+      *strcpyf(LCD_buff, b);
+      str_out(0x27, LCD_buff,0);
+      delay_ms(100); 
+      #asm("sei")
+      PORTC=0;
+while (1)
+      {
+       putchar('2');
+       delay_ms(1000);
+
+      }
+}
