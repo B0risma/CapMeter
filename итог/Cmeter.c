@@ -311,7 +311,8 @@ float esr(float C){
     delay_ms(3000);
     t=0; 
     //CLRBIT(ADMUX,MUX0);
-    ADMUX = (0 << MUX3) | (0 << MUX2) | (0 << MUX1) | (0 << MUX0);
+    ADMUX = (0 << MUX3) | (0 << MUX2) | (1 << MUX1) | (0 << MUX0);
+    SETBIT(TCCR1B,CS11);
     SETBIT(TIFR,ICF1);
     #asm("sei")
     DISCH = 0;
@@ -357,10 +358,10 @@ interrupt [TIM1_OVF] void timer1_ovf_isr(void)
 interrupt [TIM1_CAPT] void timer1_capt_isr(void)
 {
         
-        /*if (TSTBIT(ADMUX, MUX1)) {
+        if (TSTBIT(ADMUX, MUX1)) {
             ADMUX &= ~((1 << MUX3) | (1 << MUX2) | (1 << MUX1) | (1 << MUX0));
             }
-        else */if (TSTBIT(ADMUX, MUX0)==0){
+        else if (TSTBIT(ADMUX, MUX0)==0){
             TCNT1 = 0;
             SETBIT(ADMUX, MUX0);
             T1 = t*0xFFFF + ICR1;  
@@ -371,6 +372,7 @@ interrupt [TIM1_CAPT] void timer1_capt_isr(void)
         } 
         else{
             T2 = t*0xFFFF + ICR1;
+            CLRBIT(TCCR1B,CS11);
         }       
          SETBIT(TIFR,ICF1);
          SETBIT(ACSR,ACI);
@@ -518,7 +520,7 @@ strf_out("TESTING");
 C = testC();
 LCD_LINE2;
 lcd_printf(C, 2);
-//R = esr(C);
+R = esr(C);
 CLRBIT(TCCR1B,CS11);
 
       
