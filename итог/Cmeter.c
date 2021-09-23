@@ -1,34 +1,13 @@
-/*******************************************************
-This program was created by the
-CodeWizardAVR V3.12 Advanced
-Automatic Program Generator
-© Copyright 1998-2014 Pavel Haiduc, HP InfoTech s.r.l.
-http://www.hpinfotech.com
-
-Project : 
-Version : 
-Date    : 15.05.2021
-Author  : 
-Company : 
-Comments: 
-
-
-Chip type               : ATmega8A
-Program type            : Application
-AVR Core Clock frequency: 8,000000 MHz
-Memory model            : Small
-External RAM size       : 0
-Data Stack size         : 256
-*******************************************************/
 #define CUR2 PORTD.7
 #define CUR1 PORTB.0
 #define DISCH PORTB.1
+#define TESTC PORTD.0
 #define LCD_LINE1 lcd_com(0x80)
 #define LCD_LINE2 lcd_com(0xC0)
 #define LCD_CLR lcd_com(0x01)
 #define CLK 16  //MHz
 #define CLK_PSL 8
-#define REF 1.25
+#define REF 1500
 
 
 #include <mega8.h>
@@ -43,7 +22,7 @@ Data Stack size         : 256
 
 // Declare your global variables here
 unsigned long t=0, T1=0, T2=0;
-eeprom float I1=10.5, I2= 113.3;
+eeprom float I1=10.5, I2= 113.3, prb_R = 1;
 bit mode = 0;
 
 void LCDcom(unsigned char com) //выполняет пол команды отправляет старший полубайт
@@ -160,6 +139,48 @@ void lcd_printf(float f, unsigned char n){
     str_out(str);
 }
 
+float probe_R (void)
+{
+      char i=0; 
+      float prb_r = 0;
+      DISCH = 0;
+      CUR2 = 1;
+      LCD_CLR;
+      LCD_LINE1;
+      strf_out("connect ");
+      delay_ms(100);
+      #asm("cli")
+      ACSR.ACD = 1;
+      ADCSRA.ADEN = 0;
+      ADMUX.MUX0 = 1;
+      ADMUX.MUX1 = 1;
+      DDRC.3 = 0;
+      PORTC.3 = 1;
+      
+      while(TSTBIT(PINC, 3));
+      delay_ms(100);
+      ADCSRA.ADEN = 1;
+      for ( i = 0; i < 10; i++)
+      {
+          ADCSRA.ADSC = 1;
+          while(!TSTBIT(ADCSRA, ADIF));
+          SETBIT(ADCSRA, ADIF);
+          prb_r += ADCW;
+      }
+      prb_r = (prb_r*REF/1024)/(I2*10);
+      LCD_CLR;
+      LCD_LINE1;
+      strf_out("disc ");
+      ADCSRA.ADEN = 0;
+      while(!TSTBIT(PINC, 3));
+      ACSR.ACD = 0;
+      CUR2 = 0;
+      LCD_CLR;
+      LCD_LINE1;     
+      
+      return prb_r;
+}
+
 void check( float C){
  CUR1 = 0;
  CUR2 = 0;
@@ -170,8 +191,8 @@ void check( float C){
  SETBIT(SFIOR, ACME);
  SETBIT(TCCR1B,CS11);
  #asm("sei")
- SETBIT(PORTD, PORTD0);
- DISCH=1;
+ //TESTC = 1;
+ DISCH = 1;
  delay_ms(1000);  
  CUR2=1;
  DISCH=0;
@@ -198,6 +219,7 @@ void check( float C){
  CLRBIT(TIMSK, TICIE1);
  ADMUX &= ~((1 << MUX3) | (1 << MUX2) | (1 << MUX1) | (1 << MUX0));
  SETBIT(TIFR,ICF1);
+ SETBIT(TCCR1B,CS11);
  SETBIT(TIMSK, TICIE1);    
  T1=0;
  T2=0; 
@@ -215,7 +237,16 @@ void check( float C){
  LCD_LINE2;
  lcd_printf(I2,1); 
  strf_out("mA");
- CLRBIT(PORTD, PORTD0);
+ //TESTC = 0;
+ 
+ /*delay_ms(500);
+ LCD_CLR;
+ strf_out("probe R=");
+ LCD_LINE2;
+ prb_R = probe_R(); 
+ lcd_printf(prb_R,3);
+ delay_ms(500);*/ 
+ 
                 
  mode = 0;
  CLRBIT(TCCR1B,CS11); 
@@ -229,39 +260,41 @@ float C = 0;
 CUR1 = 0;
 CUR2 = 0;
 DISCH=1;
-delay_ms(1000);
+delay_ms(2000);
 SETBIT(TCCR1B,CS11);
-CLRBIT(ADMUX,MUX0);
+ADMUX = 0;
 SETBIT(TIFR,ICF1);
 #asm("sei")
 CUR1=1;
-t = 0;
+
 TCNT1 = 0;
 T1 = 0;
+t = 0;
 T2 = 0;
 DISCH = 0;
 while (!T1);
-if (t > 4) {  //~>1000uF
+if (T1/0xffff > (CLK/CLK_PSL)*1) {  //~>1000uF
     #asm("cli")
     CUR1 = 0;
     DISCH = 1;
-    delay_ms(500);
-    CLRBIT(ADMUX,MUX0);
+    delay_ms(1000);
+    ADMUX = 0;
     SETBIT(TIFR,ICF1);
     #asm("sei")
     CUR2 = 1;
-    t = 0;
+    
     TCNT1 = 0;
+    t = 0;
     T1 = 0;
     T2 = 0;
     DISCH = 0;
     while (!T1);
-    while ((T2<T1/2) | (!T2)); 
+    while ((T2<T1/2) || (!T2)); 
     CUR2 = 0;
     C =  (I2*((float)T2/(CLK/CLK_PSL)))/(1265);
 }
 else {
-    while ((T2<T1/2) | (!T2));
+    while ((T2<T1/2) || (!T2));
     CUR1 = 0;
     C =  (I1*((float)T2/(CLK/CLK_PSL)))/(1265);
 }
@@ -275,10 +308,10 @@ float esr(float C){
     CUR1 = 0;
     CUR2 = 0;
     DISCH = 1;
-    delay_ms(2000);
-    SETBIT(TCCR1B,CS11); 
+    delay_ms(3000);
+    t=0; 
     //CLRBIT(ADMUX,MUX0);
-    ADMUX |= (0 << MUX3) | (0 << MUX2) | (1 << MUX1) | (0 << MUX0);
+    ADMUX = (0 << MUX3) | (0 << MUX2) | (0 << MUX1) | (0 << MUX0);
     SETBIT(TIFR,ICF1);
     #asm("sei")
     DISCH = 0;
@@ -287,13 +320,15 @@ float esr(float C){
                 //пока оставить такой порядок, наиболее точно и быстро
     t = 0;
     T1 = 0;
-    while(!T1);
-    R = (1235)/I2 - ((float)T1/(CLK/CLK_PSL))/C;          
+    while(!T1 || (T1 < T2/2) );
+    R = (1235)/I2 - ((float)T1/(CLK/CLK_PSL))/C;// - prb_R;          
     CUR1 = 0;
     CUR2 = 0;
     DISCH = 1;
     return R;
 }
+
+
 
 
 // External Interrupt 0 service routine
@@ -321,14 +356,12 @@ interrupt [TIM1_OVF] void timer1_ovf_isr(void)
 
 interrupt [TIM1_CAPT] void timer1_capt_isr(void)
 {
-        if (TSTBIT(ADMUX, MUX1)) {
-            TCNT1 = 0;                                //мултиплексор на 0
-            //PORTD.0 = 1;
+        
+        /*if (TSTBIT(ADMUX, MUX1)) {
             ADMUX &= ~((1 << MUX3) | (1 << MUX2) | (1 << MUX1) | (1 << MUX0));
             }
-        else if (TSTBIT(ADMUX, MUX0)==0){
-            TCNT1=0;
-            //PORTD.1 = 1;
+        else */if (TSTBIT(ADMUX, MUX0)==0){
+            TCNT1 = 0;
             SETBIT(ADMUX, MUX0);
             T1 = t*0xFFFF + ICR1;  
             T2=0;
@@ -337,10 +370,10 @@ interrupt [TIM1_CAPT] void timer1_capt_isr(void)
             
         } 
         else{
-            //PORTD.3 = 1;
             T2 = t*0xFFFF + ICR1;
         }       
          SETBIT(TIFR,ICF1);
+         SETBIT(ACSR,ACI);
 }
 
 
@@ -390,7 +423,7 @@ TCNT0=0x00;
 // Compare A Match Interrupt: Off
 // Compare B Match Interrupt: Off
 TCCR1A=(0<<COM1A1) | (0<<COM1A0) | (0<<COM1B1) | (0<<COM1B0) | (0<<WGM11) | (0<<WGM10);
-TCCR1B=(0<<ICNC1) | (1<<ICES1) | (0<<WGM13) | (0<<WGM12) | (0<<CS12) | (1<<CS11) | (0<<CS10);
+TCCR1B=(0<<ICNC1) | (1<<ICES1) | (0<<WGM13) | (0<<WGM12) | (0<<CS12) | (0<<CS11) | (0<<CS10);
 TCNT1H=0x00;
 TCNT1L=0x00;
 ICR1H=0x00;
@@ -476,11 +509,16 @@ lcd_printf(I2,1);
 strf_out("mA");
 delay_ms(500);
 
+
+
+
 LCD_CLR;
 strf_out("TESTING");
 
 C = testC();
-R = esr(C);
+LCD_LINE2;
+lcd_printf(C, 2);
+//R = esr(C);
 CLRBIT(TCCR1B,CS11);
 
       
@@ -504,4 +542,3 @@ while (1)
         delay_ms(1000);
       }
 }
- check git
