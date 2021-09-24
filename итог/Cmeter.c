@@ -260,7 +260,7 @@ float C = 0;
 CUR1 = 0;
 CUR2 = 0;
 DISCH=1;
-delay_ms(2000);
+delay_ms(1000);
 SETBIT(TCCR1B,CS11);
 ADMUX = 0;
 SETBIT(TIFR,ICF1);
@@ -308,21 +308,22 @@ float esr(float C){
     CUR1 = 0;
     CUR2 = 0;
     DISCH = 1;
-    delay_ms(3000);
-    t=0; 
-    //CLRBIT(ADMUX,MUX0);
-    ADMUX = (0 << MUX3) | (0 << MUX2) | (1 << MUX1) | (0 << MUX0);
+    delay_ms(2000);
     SETBIT(TCCR1B,CS11);
+    t=0;
+    T1 = 0; 
+    //CLRBIT(ADMUX,MUX0);
+    ADMUX = (1 << MUX1) | (0 << MUX0);
     SETBIT(TIFR,ICF1);
+    TCNT1 = 0;
+    //SETBIT(TCCR1B,CS11); 
+    SETBIT(ACSR,ACI);
     #asm("sei")
     DISCH = 0;
     CUR2 = 1;
-    TCNT1 = 0;
-                //пока оставить такой порядок, наиболее точно и быстро
-    t = 0;
-    T1 = 0;
-    while(!T1 || (T1 < T2/2) );
-    R = (1235)/I2 - ((float)T1/(CLK/CLK_PSL))/C;// - prb_R;          
+    TCNT1 = 0;    
+    while(!T1 );
+    R = (1235)/I2 - (T1/C)/(CLK/CLK_PSL);// - prb_R;          
     CUR1 = 0;
     CUR2 = 0;
     DISCH = 1;
@@ -359,13 +360,14 @@ interrupt [TIM1_CAPT] void timer1_capt_isr(void)
 {
         
         if (TSTBIT(ADMUX, MUX1)) {
-            ADMUX &= ~((1 << MUX3) | (1 << MUX2) | (1 << MUX1) | (1 << MUX0));
+            TCNT1 = 0;
+            ADMUX = 0;
             }
-        else if (TSTBIT(ADMUX, MUX0)==0){
+        else if (!TSTBIT(ADMUX, MUX0)){
             TCNT1 = 0;
             SETBIT(ADMUX, MUX0);
             T1 = t*0xFFFF + ICR1;  
-            T2=0;
+            //T2=0;
             t=0;
             
             
@@ -425,7 +427,7 @@ TCNT0=0x00;
 // Compare A Match Interrupt: Off
 // Compare B Match Interrupt: Off
 TCCR1A=(0<<COM1A1) | (0<<COM1A0) | (0<<COM1B1) | (0<<COM1B0) | (0<<WGM11) | (0<<WGM10);
-TCCR1B=(0<<ICNC1) | (1<<ICES1) | (0<<WGM13) | (0<<WGM12) | (0<<CS12) | (0<<CS11) | (0<<CS10);
+TCCR1B=(1<<ICNC1) | (1<<ICES1) | (0<<WGM13) | (0<<WGM12) | (0<<CS12) | (0<<CS11) | (0<<CS10);
 TCNT1H=0x00;
 TCNT1L=0x00;
 ICR1H=0x00;
