@@ -24,7 +24,6 @@
 // Declare your global variables here
 unsigned long t=0, T1=0, T2=0;              //Переменные времени
 eeprom float I1=10, I2= 100, prb_R = 0;     //Переменные калибровочных значений
-bit mode = 0;                               //Флаг режима работы
 
 void LCDcom(unsigned char com) //выполняет пол команды отправляет старший полубайт
 {
@@ -168,7 +167,7 @@ float probe_R (void)
       PORTC.3 = 0;
       delay_ms(1000);
       ADCSRA.ADEN = 1;
-      for ( i = 0; i < 100;)
+      for ( i = 0; i < 10;)
       {
           ADCSRA.ADSC = 1;
           while(!TSTBIT(ADCSRA, ADIF));
@@ -182,10 +181,8 @@ float probe_R (void)
           
           
       }
-      prb_r = (prb_r*REF/1024)/(I2*100);
+      prb_r = (prb_r*REF/1024)/(I2*i);
       LCD_CLR;
-      LCD_LINE1;
-       lcd_printf(ADCW,0);
       strf_out("Dis");
       LCD_LINE2;
       strf_out(" connect");
@@ -193,8 +190,6 @@ float probe_R (void)
       while(!TSTBIT(PINC, 3));
       ACSR.ACD = 0;
       CUR2 = 0;
-      LCD_CLR;
-      LCD_LINE1;
       ADMUX &= ~((1<<MUX3) | (1<<MUX2) | (1<<MUX1) | (1<<MUX0));     
       
       return prb_r;
@@ -204,17 +199,17 @@ float probe_R (void)
 //Калибровка источников тока
 void check( float C){          
  CUR1 = 0;
- CUR2 = 0;
- mode = 1;  
+ CUR2 = 0; 
  LCD_CLR;
  LCD_LINE1; 
  strf_out("CHECK");      
  SETBIT(SFIOR, ACME);
- SETBIT(TCCR1B,CS11);
+ CLRBIT(TCCR1B,CS11);
  #asm("sei")
  TESTC = 1;
  DISCH = 1;
- delay_ms(1000);  
+ delay_ms(1000);
+ SETBIT(TCCR1B,CS11);  
  CUR2=1;
  DISCH=0;
  TCNT1=0;
@@ -245,7 +240,7 @@ void check( float C){
  while(!T2);
  CUR1=0;
  I1 = (1265)/((float)T2/(CLK/CLK_PSL))*C;
- 
+ CLRBIT(TCCR1B,CS11);
  DISCH=0;
  LCD_CLR;
  LCD_LINE1; 
@@ -264,7 +259,6 @@ void check( float C){
  lcd_printf(prb_R,3);
  delay_ms(500); 
                 
- mode = 0;
  CLRBIT(TCCR1B,CS11); 
 }
 
@@ -320,12 +314,40 @@ return C;
 //Измерение ESR
 float esr(float C){             
     float R = 0;
+    int adc = 0, i = 0;
+    int total_Chrg = 0;
     
     #asm("cli")
     CUR1 = 0;
     CUR2 = 1;
     DISCH = 1;
-    delay_ms(1000);
+    delay_ms(1000);  
+
+
+    ACSR.ACD = 1;
+    ADCSRA.ADEN = 1;
+    ADMUX.MUX0 = 1;
+    ADMUX.MUX1 = 1;
+    ADCSRA.ADSC = 1;
+      for ( i = 0; i < 10;)
+      {
+          ADCSRA.ADSC = 1;
+          while(!TSTBIT(ADCSRA, ADIF));
+          SETBIT(ADCSRA, ADIF);
+          
+          if (ADCW > adc/2){
+            adc = ADCW;
+            total_Chrg += adc;
+            i++;
+          }
+          
+          
+      }
+    ADCSRA.ADEN = 0;
+    ACSR.ACD = 0;
+    
+    
+    
     SETBIT(TCCR1B,CS11);
     t=0;
     T1 = 0; 
@@ -339,7 +361,7 @@ float esr(float C){
     DISCH = 0;
     TCNT1 = 0;    
     while(!T1 );
-    R = (1235)/I2 - (T1/C)/(CLK/CLK_PSL);// - prb_R;         
+    R = (1235)/I2 - (T1/C)/(CLK/CLK_PSL) - prb_R - ((float)total_Chrg*REF/1024)/(I2*i);         
     CUR1 = 0;
     CUR2 = 0;
     DISCH = 1;
@@ -364,9 +386,10 @@ interrupt [EXT_INT0] void ext_int0_isr(void)
 interrupt [TIM1_OVF] void timer1_ovf_isr(void)
 {
         t++;
-        if((t > (CLK/CLK_PSL)*30) & (!mode)){
+        if((t > (CLK/CLK_PSL)*30)){
             LCD_CLR;
-            strf_out("ERROR");  
+            strf_out("ERROR");
+            CLRBIT(TCCR1B,CS11);  
         }
 
 }
@@ -497,8 +520,6 @@ LCD_CLR;
 strf_out("TESTING");
 
 C = testC();
-LCD_LINE2;
-lcd_printf(C, 2);
 R = esr(C);
 CLRBIT(TCCR1B,CS11);
 
